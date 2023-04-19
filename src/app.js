@@ -87,14 +87,18 @@ server.post("/nova-transacao/:tipo", async (req, res) => {
     if (error) return res.status(422).send(error.details.map(ed => ed.message));
     // if (error) return (res.status(422).send(error.details.map(ed => ed.message)));
 
-    if (!token) return res.status(401).send("Sessão inspirada, faça login");
+    if (!token) return res.status(401).send("Sessão expirada, faça login");
 
     try {
         const tokenExists = await db.collection("sessions").findOne({ token });
 
         if (!tokenExists) return res.status(401).send("Você não tem autorização");
 
-        await db.collection(`${tokenExists.userID}History`).insertOne({ amount: value.amount, type: value.type })
+        const date = new Date();
+        const day = date.getDay();
+        const month = date.getMonth();
+        const dateDDMM = `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}`;
+        await db.collection(`${tokenExists.userID}History`).insertOne({ amount: value.amount, type: value.type, date: dateDDMM })
 
         const allHistoryUser = await db.collection(`${tokenExists.userID}History`).find().toArray();
 
@@ -106,15 +110,84 @@ server.post("/nova-transacao/:tipo", async (req, res) => {
             else {
                 balance += ahu.amount;
             }
-            console.log(`operação de ${ahu.type.toLowerCase()}: ${ahu.amount}`)
         });
         balance = (Math.floor(balance * 100) / 100);
 
-        return res.send({ ...value, balance });
+
+        return res.send({ ...value, balance, date: dateDDMM });
     }
     catch (error) {
-        console.log(error.message);
+        return console.log(error.message);
+    }
+});
+
+server.get("/transacoes", async (req, res) => {
+    const { authorization } = req.headers;
+    const token = authorization?.replace("Bearer ", "");
+
+    if (!token) return res.status(401).send("Sessão expirada, faça login");
+
+    try {
+        const tokenExists = await db.collection("sessions").findOne({ token });
+        if (!tokenExists) return res.status(401).send("Sessão expirada, faça login");
+
+        // console.log(tokenExists.userID);
+        const userID = tokenExists.userID;
+        // const username = await db.collection("users").findOne(_id: userID);
+        const username = await db.collection("users").findOne({ _id: new ObjectId(userID) });
+        const cashFlow = await db.collection(`${tokenExists.userID}History`).find().toArray();
+        // console.log(cashFlow);
+        let balance = 0;
+        cashFlow.forEach(cf => {
+            if (cf.type.toLowerCase() === "saida") {
+                balance -= cf.amount
+            }
+            else {
+                balance += cf.amount;
+            }
+            // console.log(`operação de ${cf.type.toLowerCase()}: ${cf.amount}`)
+        });
+        balance = (Math.floor(balance * 100) / 100);
+        const cashFlowWithOutID = cashFlow.map(cf => ({ username: username.username, amount: cf.amount, type: cf.type, balance: balance, date: cf.date }))
+
+        return res.send(cashFlowWithOutID.reverse());
+    }
+    catch (error) {
+        return console.log(error.message);
+    }
+});
+
+server.put("/logout", async (req, res) => {
+    const { authorization } = req.headers;
+    const token = authorization?.replace("Bearer ", "");
+
+    if (!token) return res.status(401).send("Sessão expirada, faça login");
+
+    try {
+        const tokenExists = await db.collection("sessions").findOne({ token });
+        if (!tokenExists) return res.status(401).send("Sessão expirada, faça login");
+
+        await db.collection("sessions").updateOne({ token }, { $set: { token: uuid() } })
+
+        res.send("Logout realizado com sucesso");
+    }
+    catch (error) {
+        return console.log(error.message);
     }
 });
 
 server.listen(apiPort, () => console.log(`API running in port ${apiPort}`));
+
+// function giveBalance(allHistory) {
+//     let balance = 0;
+//     allHistory.forEach(ah => {
+//         if (ah.type.toLowerCase() === "saida") {
+//             balance -= ah.amount
+//         }
+//         else {
+//             balance += ah.amount;
+//         }
+//     });
+//     console.log(`operação de ${ah.type.toLowerCase()}: ${ah.amount}`)
+//     return (Math.floor(balance * 100) / 100);
+// }
