@@ -7,6 +7,7 @@ import { v4 as uuid } from "uuid";
 import { MongoClient, ObjectId } from 'mongodb';
 import { validateSignUp } from "../schemas/signUpSchema.js";
 import { validateLogin } from "../schemas/loginSchema.js";
+import { validateCashFlow } from "../schemas/cashFlowSchema.js";
 
 // console.log(apiPort);
 const server = express();
@@ -57,10 +58,15 @@ server.post("/signIn", async (req, res) => {
         if (!emailExists) return (res.status(404).send("Email não cadastrado, confira o email digitado"));
 
         if (!bcrypt.compareSync(password, emailExists.password)) return (res.status(401).send("Senha invalida"));
-        
+
         const token = uuid();
 
-        await db.collection("sessions").insertOne({userID: emailExists._id, token});
+        // await db.collection("sessions").insertOne({userID: emailExists._id, token});
+        await db.collection("sessions").updateOne(
+            { userID: emailExists._id },
+            { $set: { token } },
+            { upsert: true }
+        );
 
         return res.send(token).status(201);
     }
@@ -69,6 +75,46 @@ server.post("/signIn", async (req, res) => {
     }
 
 
+});
+
+server.post("/nova-transacao/:tipo", async (req, res) => {
+    const type = req.params.tipo;
+    const { authorization } = req.headers;
+    const token = authorization?.replace('Bearer ', '');
+
+    const { error, value } = validateCashFlow({ ...req.body, type, token });
+
+    if (error) return res.status(422).send(error.details.map(ed => ed.message));
+    // if (error) return (res.status(422).send(error.details.map(ed => ed.message)));
+
+    if (!token) return res.status(401).send("Sessão inspirada, faça login");
+
+    try {
+        const tokenExists = await db.collection("sessions").findOne({ token });
+
+        if (!tokenExists) return res.status(401).send("Você não tem autorização");
+
+        await db.collection(`${tokenExists.userID}History`).insertOne({ amount: value.amount, type: value.type })
+
+        const allHistoryUser = await db.collection(`${tokenExists.userID}History`).find().toArray();
+
+        let balance = 0;
+        allHistoryUser.forEach(ahu => {
+            if (ahu.type.toLowerCase() === "saida") {
+                balance -= ahu.amount
+            }
+            else {
+                balance += ahu.amount;
+            }
+            console.log(`operação de ${ahu.type.toLowerCase()}: ${ahu.amount}`)
+        });
+        balance = (Math.floor(balance * 100) / 100);
+
+        return res.send({ ...value, balance });
+    }
+    catch (error) {
+        console.log(error.message);
+    }
 });
 
 server.listen(apiPort, () => console.log(`API running in port ${apiPort}`));
