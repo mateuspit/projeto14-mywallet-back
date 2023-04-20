@@ -159,7 +159,7 @@ server.get("/transacoes", async (req, res) => {
     }
 });
 
-server.put("/logout", async (req, res) => {
+server.delete("/logout", async (req, res) => {
     const { authorization } = req.headers;
     const token = authorization?.replace("Bearer ", "");
 
@@ -169,7 +169,7 @@ server.put("/logout", async (req, res) => {
         const tokenExists = await db.collection("sessions").findOne({ token });
         if (!tokenExists) return res.status(401).send("Sessão expirada, faça login");
 
-        await db.collection("sessions").updateOne({ token }, { $set: { token: uuid() } })
+        await db.collection("sessions").deleteOne({ token })
 
         res.send("Logout realizado com sucesso");
     }
