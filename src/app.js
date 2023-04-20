@@ -148,9 +148,11 @@ server.get("/transacoes", async (req, res) => {
             // console.log(`operação de ${cf.type.toLowerCase()}: ${cf.amount}`)
         });
         balance = (Math.floor(balance * 100) / 100);
-        const cashFlowWithOutID = cashFlow.map(cf => ({ username: username.username, amount: cf.amount, type: cf.type, balance: balance, date: cf.date }))
+        const cashFlowWithBalance = cashFlow.map(cf => ({ _id: cf._id, username: username.username, amount: cf.amount, type: cf.type, balance: balance, date: cf.date }))
 
-        return res.send(cashFlowWithOutID.reverse());
+        // console.log(cashFlowWithOutID.length);
+        // console.log(cashFlowWithOutID[0]);
+        return res.send(cashFlowWithBalance.reverse());
     }
     catch (error) {
         return console.log(error.message);
@@ -173,6 +175,29 @@ server.put("/logout", async (req, res) => {
     }
     catch (error) {
         return console.log(error.message);
+    }
+});
+
+server.delete("/delete", async (req, res) => {
+    const { authorization } = req.headers;
+    const { operationID } = req.body;
+    const token = authorization?.replace("Bearer ", "");
+
+    if (!token) return res.status(401).send("Sessão expirada, faça login!");
+
+    try {
+        const tokenExists = await db.collection("sessions").findOne({ token });
+        if (!tokenExists) return res.status(401).send("Sessão expirada, faça login!");
+
+        // const { deletedCount } = await db.collection(`${tokenExists.userID}History`).deleteOne({ operationID });
+        const { deletedCount } = await db.collection(`${tokenExists.userID}History`).deleteOne({ _id: new ObjectId(operationID) });
+
+        if (deletedCount) return res.status(201).send("Operação deletada com sucesso!");
+
+        return res.status(200).send("Nada foi deletado");
+    }
+    catch (error) {
+        return console.log("catch: ", error.message);
     }
 });
 
