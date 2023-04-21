@@ -98,14 +98,20 @@ server.post("/nova-transacao/:tipo", async (req, res) => {
         const day = date.getDay();
         const month = date.getMonth();
         const dateDDMM = `${day.toString().padStart(2, "0")}/${month.toString().padStart(2, "0")}`;
-        await db.collection(`${tokenExists.userID}History`).insertOne({ amount: value.amount, type: value.type, date: dateDDMM })
+        // await db.collection(`${tokenExists.userID}History`).insertOne({ amount: value.amount, type: value.type, date: dateDDMM })
 
         const allHistoryUser = await db.collection(`${tokenExists.userID}History`).find().toArray();
 
         let balance = 0;
+        if (value.type.toLowerCase() === "saida"){
+            balance -= value.amount;
+        }
+        else{
+            balance += value.amount;
+        }
         allHistoryUser.forEach(ahu => {
             if (ahu.type.toLowerCase() === "saida") {
-                balance -= ahu.amount
+                balance -= ahu.amount;
             }
             else {
                 balance += ahu.amount;
@@ -113,6 +119,7 @@ server.post("/nova-transacao/:tipo", async (req, res) => {
         });
         balance = (Math.floor(balance * 100) / 100);
 
+        await db.collection(`${tokenExists.userID}History`).insertOne({ ...value, balance, date: dateDDMM })
 
         return res.send({ ...value, balance, date: dateDDMM });
     }
@@ -199,6 +206,10 @@ server.delete("/delete", async (req, res) => {
     catch (error) {
         return console.log("catch: ", error.message);
     }
+});
+
+server.put("/editar-registro/:tipo", async (req, res) => {
+
 });
 
 server.listen(apiPort, () => console.log(`API running in port ${apiPort}`));
