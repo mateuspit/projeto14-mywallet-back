@@ -103,10 +103,10 @@ server.post("/nova-transacao/:tipo", async (req, res) => {
         const allHistoryUser = await db.collection(`${tokenExists.userID}History`).find().toArray();
 
         let balance = 0;
-        if (value.type.toLowerCase() === "saida"){
+        if (value.type.toLowerCase() === "saida") {
             balance -= value.amount;
         }
-        else{
+        else {
             balance += value.amount;
         }
         allHistoryUser.forEach(ahu => {
@@ -209,7 +209,44 @@ server.delete("/delete", async (req, res) => {
 });
 
 server.put("/editar-registro/:tipo", async (req, res) => {
+    const { authorization } = req.headers;
+    const type = req.params.tipo;
+    const token = authorization?.replace("Bearer ", "");
+    const { operationID } = req.body;
 
+    // console.log(type);
+    const { error, value } = validateCashFlow({ ...req.body, type, token });
+
+    if (!token) return res.status(401).send("Faça login!");
+
+    try {
+        const tokenExists = await db.collection("sessions").findOne({ token });
+
+        if (!tokenExists) return res.status(401).send("Faça login!");
+
+        if (error) return res.status(422).send(error.details.map(ed => ed.message));
+
+        await db.collection(`${tokenExists.userID}History`)
+            .updateOne({ _id: new ObjectId(operationID) }, { $set: { amount: value.amount, description: value.description } });
+
+        // const test = await db.collection(`${tokenExists.userID}History`).findOne({$natural:-1})
+        // const test = await db.collection(`${tokenExists.userID}History`).findOne({$query: {}, $orderby: {$natural : -1}})
+        const { balance: totalBalance } = await db.collection(`${tokenExists.userID}History`).findOne({}, { sort: { _id: -1 } });
+        let newBalance = 0;
+        let newValueDiff = 0;
+        if (value.type.toLowerCase === "saida") {
+            newBalance = totalBalance - value.amount;
+        }
+        else {
+            newBalance = totalBalance + value.amount;
+        }
+        // res.send(value, type, token);
+        await db.collection(`${tokenExists.userID}History`).updateOne({ balance }, { $set:{ balance: newBalance } });
+res.send(test);
+    }
+    catch (error) {
+    return res.send(error.message);
+}
 });
 
 server.listen(apiPort, () => console.log(`API running in port ${apiPort}`));

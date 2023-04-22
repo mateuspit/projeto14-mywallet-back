@@ -7,7 +7,8 @@ const cashFlowSchema = Joi.object({
     amount: Joi.number().positive().precision(2).required(),
     description: Joi.string().required(),
     type: Joi.string().insensitive().valid('entrada', 'saida').lowercase().required(),
-    token: Joi.string().required()
+    token: Joi.string().required(),
+    operationID: Joi.string()
 });
 
 export const validateCashFlow = cashFlowValidator(cashFlowSchema);
