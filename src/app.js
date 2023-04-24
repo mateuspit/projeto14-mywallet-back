@@ -233,20 +233,20 @@ server.put("/editar-registro/:tipo", async (req, res) => {
         // const test = await db.collection(`${tokenExists.userID}History`).findOne({$query: {}, $orderby: {$natural : -1}})
         const { balance: totalBalance } = await db.collection(`${tokenExists.userID}History`).findOne({}, { sort: { _id: -1 } });
         let newBalance = 0;
-        let newValueDiff = 0;
+        const balanceOperationUpdated = await db.collection(`${tokenExists.userID}History`).findOne({ _id: new ObjectId(operationID) });
         if (value.type.toLowerCase === "saida") {
-            newBalance = totalBalance - value.amount;
+            newBalance = totalBalance - value.amount + balanceOperationUpdated;
         }
         else {
-            newBalance = totalBalance + value.amount;
+            newBalance = totalBalance + value.amount - balanceOperationUpdated;
         }
         // res.send(value, type, token);
-        await db.collection(`${tokenExists.userID}History`).updateOne({ balance }, { $set:{ balance: newBalance } });
-res.send(test);
+        await db.collection(`${tokenExists.userID}History`).updateOne({ balance: totalBalance }, { $set: { balance: newBalance } });
+        res.send(test);
     }
     catch (error) {
-    return res.send(error.message);
-}
+        return res.send(error.message);
+    }
 });
 
 server.listen(apiPort, () => console.log(`API running in port ${apiPort}`));
