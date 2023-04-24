@@ -226,23 +226,38 @@ server.put("/editar-registro/:tipo", async (req, res) => {
 
         if (error) return res.status(422).send(error.details.map(ed => ed.message));
 
+        // await db.collection(`${tokenExists.userID}History`)
+        //     .updateOne({ _id: new ObjectId(operationID) }, { $set: { amount: value.amount, description: value.description } });
+
+
+        const { balance: totalBalance, _id: idLastObject } = await db.collection(`${tokenExists.userID}History`).findOne({}, { sort: { _id: -1 } });
+        // console.log("totalBalance: ", totalBalance);
+        let newBalance = 0;
+        const { amount: amountOperationChanged } = await db.collection(`${tokenExists.userID}History`).findOne({ _id: new ObjectId(operationID) });
+
+
+        // console.log("value.amount: ", value.amount);
+        // console.log("amountOperationChanged: ", amountOperationChanged);
+
+        if (value.type.toLowerCase() === "saida") {
+            newBalance = totalBalance - value.amount + amountOperationChanged;
+        }
+        else {
+            // console.log("aqui?")
+            newBalance = totalBalance + value.amount - amountOperationChanged;
+        }
+        // console.log("newBalance: ", newBalance);
+        // console.log("idLastObject: ", idLastObject);
+        // await db.collection(`${tokenExists.userID}History`).updateOne({ _id: latestDocument._id }, { $set: { balance: newBalance } });
+
+        await db.collection(`${tokenExists.userID}History`)
+            .updateOne({ _id: idLastObject }, { $set: { balance: newBalance } });
         await db.collection(`${tokenExists.userID}History`)
             .updateOne({ _id: new ObjectId(operationID) }, { $set: { amount: value.amount, description: value.description } });
 
-        // const test = await db.collection(`${tokenExists.userID}History`).findOne({$natural:-1})
-        // const test = await db.collection(`${tokenExists.userID}History`).findOne({$query: {}, $orderby: {$natural : -1}})
-        const { balance: totalBalance } = await db.collection(`${tokenExists.userID}History`).findOne({}, { sort: { _id: -1 } });
-        let newBalance = 0;
-        const balanceOperationUpdated = await db.collection(`${tokenExists.userID}History`).findOne({ _id: new ObjectId(operationID) });
-        if (value.type.toLowerCase === "saida") {
-            newBalance = totalBalance - value.amount + balanceOperationUpdated;
-        }
-        else {
-            newBalance = totalBalance + value.amount - balanceOperationUpdated;
-        }
-        // res.send(value, type, token);
-        await db.collection(`${tokenExists.userID}History`).updateOne({ balance: totalBalance }, { $set: { balance: newBalance } });
-        res.send(test);
+        // console.log(updateBalanceResponse);
+
+        res.send("Mudança feita!");
     }
     catch (error) {
         return res.send(error.message);
