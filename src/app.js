@@ -8,6 +8,8 @@ server.use(cors());
 server.use(express.json())
 server.use(router)
 
-server.listen(process.env.PORT, () => {
+
+const PORT = process.end.PORT || 5000;
+server.listen(PORT, () => {
     console.log("Server running on port " + process.env.PORT);
 });
