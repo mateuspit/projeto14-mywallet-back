@@ -99,11 +99,24 @@ export async function getOperations(req, res) {
             // console.log(`operação de ${cf.type.toLowerCase()}: ${cf.amount}`)
         });
         balance = (Math.floor(balance * 100) / 100);
-        const cashFlowWithBalance = cashFlow.map(cf => ({ _id: cf._id, username: username.username, amount: cf.amount, type: cf.type, balance: balance, date: cf.date }))
+        // const cashFlowWithBalance = cashFlow.map(cf => ({ _id: cf._id, username: username.username, amount: cf.amount, type: cf.type, balance: balance, date: cf.date }))
+        const cashFlowWithBalance = {
+            token: tokenExists.token,
+            username: username.username,
+            userHistory: cashFlow.map(cf => ({
+              _id: cf._id,
+              type: cf.type,
+              amount: cf.amount,
+              description: cf.description,
+              token: cf.token,
+              balance: cf.balance,
+              date: cf.date
+            }))
+          }
 
         // console.log(cashFlowWithOutID.length);
         // console.log(cashFlowWithOutID[0]);
-        return res.send(cashFlowWithBalance.reverse());
+        return res.send(cashFlowWithBalance);
     }
     catch (error) {
         return res.status(500).send(error.message);

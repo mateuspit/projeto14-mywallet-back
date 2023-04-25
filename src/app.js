@@ -8,4 +8,6 @@ server.use(cors());
 server.use(express.json())
 server.use(router)
 
-server.listen(apiPort, () => console.log(`API running in port ${apiPort}`));
+server.listen(process.env.PORT, () => {
+    console.log("Server running on port " + process.env.PORT);
+});
